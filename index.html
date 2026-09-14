@@ -1058,6 +1058,14 @@
         .vekyc-cam-live-badge .dot { width:6px; height:6px; border-radius:50%; background:#fff; animation: ekyc-dot-pulse 1.2s ease-in-out infinite; }
         .vekyc-ai-bubble { background:#f5f3ff; border:1px solid #ddd6fe; border-radius:14px; padding:12px 14px; font-size:0.82rem; color:#3730a3; line-height:1.55; margin-bottom:14px; }
         .vekyc-code-display { font-family:'Courier New',monospace; font-size:1.7rem; font-weight:800; letter-spacing:0.25em; text-align:center; background:#0b1220; color:#4ade80; border-radius:14px; padding:16px; margin-bottom:14px; }
+        .vekyc-sig-instructions { display:flex; flex-direction:column; gap:5px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:9px 12px; margin-bottom:12px; }
+        .vekyc-sig-instructions .r { display:flex; align-items:flex-start; gap:7px; font-size:0.68rem; color:#1e3a8a; font-weight:700; line-height:1.4; }
+        .vekyc-sig-instructions .r .ic { flex:none; }
+        .vekyc-sig-status { text-align:center; font-size:0.78rem; font-weight:800; color:#7c3aed; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:10px; padding:9px; margin-bottom:8px; transition: all 0.2s ease; }
+        .vekyc-sig-status.found { color:#16a34a; background:#ecfdf5; border-color:#a7f3d0; }
+        .vekyc-sig-preview-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; background:#fff; border:2px solid #16a34a; border-radius:12px; padding:10px; margin-bottom:8px; }
+        .vekyc-sig-preview-wrap img { max-width:100%; max-height:140px; border-radius:6px; background:#fff; border:1px solid var(--border); }
+        .vekyc-sig-retake-btn { background:#fef2f2; color:#991b1b; font-weight:800; font-size:0.72rem; padding:7px 16px; border-radius:8px; }
 
         /* ===== ADMIN WALLET — REDESIGNED UI ===== */
         .wallet-modal-content { max-width: 480px !important; padding: 0 !important; overflow: hidden; text-align: left; max-height: 88vh; overflow-y: auto; }
@@ -2353,10 +2361,15 @@
         <div class="vekyc-ai-badge" id="video-ekyc-modal-title">🤖 AI Video eKYC — Live Session</div>
         <h3 style="margin:0 0 10px; font-family:'Sora',sans-serif; font-size:1.02rem; color:var(--dark);">Step <span id="video-ekyc-step-num">1</span> of <span id="video-ekyc-total-steps">4</span></h3>
         <div class="vekyc-progress-dots" id="video-ekyc-dots"></div>
-        <div class="vekyc-rules-strip">
+        <div class="vekyc-rules-strip" id="video-ekyc-rules-strip">
             <div class="r"><span class="ic">👤</span><span>Stay alone and visible in frame for the entire session — stepping away fails eKYC.</span></div>
             <div class="r"><span class="ic">🚫</span><span>No other person should appear on screen at any point.</span></div>
             <div class="r"><span class="ic">🔇</span><span>Keep your surroundings quiet — background noise or other voices will fail eKYC.</span></div>
+        </div>
+        <div class="vekyc-sig-instructions" id="video-ekyc-sig-instructions" style="display:none;">
+            <div class="r"><span class="ic">📝</span><span>Sign on a plain <strong>white paper</strong> using a <strong>black pen</strong> only.</span></div>
+            <div class="r"><span class="ic">📷</span><span>The back camera opens automatically — hold the paper flat, steady and well-lit.</span></div>
+            <div class="r"><span class="ic">🤖</span><span>The AI captures the correct frame automatically the instant your signature is clearly visible.</span></div>
         </div>
         <div class="vekyc-cam-box">
             <video id="video-ekyc-cam" autoplay playsinline muted></video>
@@ -2366,6 +2379,7 @@
                 <div style="font-size:0.72rem; text-align:center; padding:0 20px;">Camera preview unavailable — continuing with the AI eKYC questions below.</div>
             </div>
         </div>
+        <canvas id="video-ekyc-sig-canvas" style="display:none;"></canvas>
         <div class="vekyc-ai-bubble" id="video-ekyc-ai-bubble">🤖 Preparing your questions…</div>
         <button type="button" onclick="vekycRepeatSpeech()" style="background:#eef2ff; color:#4338ca; font-weight:800; font-size:0.75rem; padding:8px 12px; margin:-6px 0 10px; display:flex; align-items:center; gap:6px;">🔊 Repeat Once Again</button>
         <div class="input-group" id="video-ekyc-answer-row">
@@ -2378,6 +2392,14 @@
                 <label>Enter the code shown above</label>
                 <input type="text" id="video-ekyc-code-input" inputmode="numeric" maxlength="6" placeholder="6-digit code">
             </div>
+        </div>
+        <div id="video-ekyc-signature-row" style="display:none;">
+            <div class="vekyc-sig-status" id="video-ekyc-sig-status">🔍 Looking for your signature…</div>
+            <div class="vekyc-sig-preview-wrap" id="video-ekyc-sig-preview-wrap" style="display:none;">
+                <img id="video-ekyc-sig-preview" alt="Captured signature">
+                <button type="button" onclick="retakeVideoEkycSignature()" class="vekyc-sig-retake-btn">↺ Retake Signature</button>
+            </div>
+            <button type="button" onclick="captureVideoEkycSignatureNow()" id="video-ekyc-sig-manual-btn" style="width:100%; background:#eef2ff; color:#4338ca; font-weight:800; font-size:0.78rem; padding:10px; margin-top:2px;">📸 Capture Now</button>
         </div>
         <div style="display:flex; gap:10px; margin-top:10px;">
             <button type="button" onclick="cancelVideoEkyc()" style="flex:1; background:#f1f5f9; color:#334155; font-weight:800;">Cancel</button>
@@ -2428,7 +2450,8 @@
     <div class="modal-content" style="max-width:360px;">
         <div style="font-size:2.3rem; margin-bottom:8px;">⏳</div>
         <h3 style="margin:0 0 8px; font-family:'Sora',sans-serif; font-size:1.02rem; color:var(--dark);">Video eKYC Temporarily Locked</h3>
-        <p style="font-size:0.8rem; color:var(--grey); line-height:1.6; margin:0 0 14px;">Your last Video eKYC attempt didn't match your submitted details. For security, you can retry after a 24-hour cooldown.</p>
+        <p style="font-size:0.8rem; color:#991b1b; font-weight:700; line-height:1.6; margin:0 0 6px;" id="wekyc-cooldown-reason">Your last Video eKYC attempt didn't match your submitted details.</p>
+        <p style="font-size:0.8rem; color:var(--grey); line-height:1.6; margin:0 0 14px;">For security, you can retry after a 24-hour cooldown.</p>
         <div style="background:#fef2f2; border:1px dashed #fca5a5; border-radius:12px; padding:12px; font-weight:800; color:#991b1b; font-size:0.95rem; margin-bottom:14px;">
             Retry available in <span id="wekyc-cooldown-timer">—</span>
         </div>
@@ -8883,6 +8906,16 @@
     let _vekycResults = [];
     let _vekycCode = '';
     let _vekycStream = null;
+    // ----- Signature capture (final step): back camera + white-paper/black-pen detection -----
+    let _vekycSignatureImage = null;
+    let _vekycSigDetectTimer = null;
+    let _vekycSigStableStreak = 0;
+    let _vekycSigLastMetrics = null;
+    const VEKYC_SIG_DETECT_INTERVAL_MS = 400;
+    const VEKYC_SIG_STABLE_NEEDED = 3;         // ~1.2s held steady before auto-capture
+    const VEKYC_SIG_WHITE_MIN_RATIO = 0.45;    // enough of the frame should be paper-white
+    const VEKYC_SIG_DARK_MIN_RATIO = 0.01;     // some dark ink must be present
+    const VEKYC_SIG_DARK_MAX_RATIO = 0.35;     // but not the whole frame (e.g. a hand covering the lens)
 
     // ----- AI voice: speaks the welcome/greeting message and every question out loud, and
     // lets the user replay the current question via the "Repeat Once Again" button. -----
@@ -8934,6 +8967,17 @@
     // what's currently being asked, without repeating the welcome/greeting message again.
     function vekycRepeatSpeech() { vekycSpeak(_vekycLastSpokenText); }
     function vekycStopSpeech() { try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {} }
+    // ----- Greeting/question voice must never start before the camera preview is actually
+    // up and stable. Starting the moment the modal opens (before getUserMedia resolves, or
+    // during the camera's own warm-up flicker) is what was cutting the welcome message short.
+    // Instead, renderVideoEkycStep() is told to hold the speech, and we only flush it once the
+    // camera stream is confirmed live AND a further 4.5s settle delay has passed. -----
+    let _vekycPendingSpeak = null;
+    let _vekycCameraReadyTimer = null;
+    const VEKYC_CAMERA_SETTLE_MS = 4500; // ~4-5s for the camera preview to properly open before speaking
+    function vekycFlushPendingSpeak() {
+        if (_vekycPendingSpeak) { const t = _vekycPendingSpeak; _vekycPendingSpeak = null; vekycSpeakStep(t); }
+    }
 
     // ----- Live monitoring: exactly one person must stay in frame, with no other voices -----
     let _vekycAudioCtx = null;
@@ -8942,7 +8986,7 @@
     let _vekycMonitoringActive = false;
     let _vekycNoFaceStreak = 0;
     let _vekycMultiFaceStreak = 0;
-    let _vekycNoiseStreak = 0;
+    let _vekycNoiseWindow = [];
     const VEKYC_MONITOR_INTERVAL_MS = 600;
     // NOTE: these limits were previously tight enough that ordinary camera shake, a brief
     // head turn, or a single blurry frame — not the person actually leaving the frame — was
@@ -8951,9 +8995,18 @@
     // (answer mismatch, background noise) aren't masked by a false "out of frame" trigger.
     const VEKYC_NO_FACE_LIMIT = 8;      // ~4.8s continuously out of frame (was ~2.4s)
     const VEKYC_MULTI_FACE_LIMIT = 3;   // ~1.8s with more than one person visible (was ~1.2s)
-    const VEKYC_NOISE_LIMIT = 6;        // ~3.6s of sustained background sound (was ~2.4s)
-    const VEKYC_NOISE_THRESHOLD = 0.08; // RMS level (0–1 scale) from the mic (was 0.05 — too sensitive to normal ambient sound)
     const VEKYC_FACE_SCORE_THRESHOLD = 0.3; // lower confidence needed to still count a slightly angled/blurred face as "present" (was the library default of 0.5)
+    // Background-noise detection: a real background voice/noise is rarely one perfectly
+    // unbroken tone — normal speech has short pauses between words/breaths. Requiring a
+    // strictly *consecutive* run of loud samples let that noise reset the streak back to 0
+    // on every brief pause and never accumulate enough to fail, which is why "thoda sa bhi
+    // noise" wasn't being caught. Instead we look at a rolling window of the last several
+    // samples and fail once loud samples make up enough of that window, regardless of
+    // whether they were consecutive — this catches intermittent talking/noise correctly
+    // while still ignoring a single stray spike (a cough, a door closing, etc).
+    const VEKYC_NOISE_THRESHOLD = 0.045;   // RMS level (0–1 scale) from the mic counted as "noise"
+    const VEKYC_NOISE_WINDOW_SIZE = 10;    // look at the last ~6s of samples (10 x 600ms)
+    const VEKYC_NOISE_WINDOW_FAIL_COUNT = 4; // fail once at least 4 of those ~6s of samples were noisy (~2.4s of noise total, need not be back-to-back)
 
     function startVideoEkyc(mode) {
         _vekycMode = mode || 'setup';
@@ -8975,10 +9028,21 @@
         _vekycGreeted = false;
         _vekycLastSpokenText = '';
         _vekycCode = String(Math.floor(100000 + Math.random() * 900000));
-        document.getElementById('video-ekyc-total-steps').textContent = String(_vekycQuestions.length + 1);
+        document.getElementById('video-ekyc-total-steps').textContent = String(_vekycQuestions.length + 2);
         const titleEl = document.getElementById('video-ekyc-modal-title');
         if (titleEl) titleEl.textContent = _vekycMode === 'reverify' ? '🤖 AI Video eKYC — Re-Verification' : '🤖 AI Video eKYC — Live Session';
         renderVideoEkycDots();
+        _vekycPendingSpeak = null;
+        if (_vekycCameraReadyTimer) { clearTimeout(_vekycCameraReadyTimer); _vekycCameraReadyTimer = null; }
+        _vekycSignatureImage = null;
+        _vekycSigStableStreak = 0;
+        _vekycSigLastMetrics = null;
+        const rules = document.getElementById('video-ekyc-rules-strip');
+        const sigInstr = document.getElementById('video-ekyc-sig-instructions');
+        if (rules) rules.style.display = 'flex';
+        if (sigInstr) sigInstr.style.display = 'none';
+        const previewWrap = document.getElementById('video-ekyc-sig-preview-wrap');
+        if (previewWrap) previewWrap.style.display = 'none';
         renderVideoEkycStep();
         document.getElementById('video-ekyc-modal').classList.add('modal-open');
         startVideoEkycCamera();
@@ -8989,6 +9053,7 @@
         if (!video) return;
         if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
             if (fallback) fallback.style.display = 'flex';
+            vekycFlushPendingSpeak(); // no camera at all — nothing to wait for, speak now
             return;
         }
         const onStream = (stream, hasAudio) => {
@@ -9008,25 +9073,184 @@
                 } catch (e) { _vekycAnalyser = null; }
             }
             startVideoEkycMonitoring();
+            // Give the camera preview a few seconds to properly open and stabilize (device
+            // auto-focus/auto-exposure warm-up) before speaking the welcome/greeting message,
+            // so it's never cut off while the camera is still starting up.
+            if (_vekycCameraReadyTimer) clearTimeout(_vekycCameraReadyTimer);
+            _vekycCameraReadyTimer = setTimeout(() => { _vekycCameraReadyTimer = null; vekycFlushPendingSpeak(); }, VEKYC_CAMERA_SETTLE_MS);
         };
         navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => onStream(stream, true)).catch(() => {
             // Mic may be blocked separately from the camera — fall back to video-only so
             // eKYC can still proceed (without the background-noise check in that case).
             navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => onStream(stream, false))
-                .catch(() => { if (fallback) fallback.style.display = 'flex'; });
+                .catch(() => { if (fallback) fallback.style.display = 'flex'; vekycFlushPendingSpeak(); });
         });
     }
     function stopVideoEkycCamera() {
         if (_vekycStream) { _vekycStream.getTracks().forEach(t => t.stop()); _vekycStream = null; }
         const video = document.getElementById('video-ekyc-cam');
         if (video) { video.srcObject = null; video.classList.remove('mirrored-preview'); }
+        stopVideoEkycSignatureDetection();
+    }
+
+    // ===== SIGNATURE CAPTURE (final step) =====
+    // Switches from the front-facing identity camera to the back camera, shows the
+    // white-paper/black-pen instructions in place of the face/noise rules (which no longer
+    // apply once we're photographing a document rather than the person), and starts scanning
+    // frames for a signed sheet of paper so the AI can capture it automatically.
+    function startVideoEkycSignatureStep() {
+        const rules = document.getElementById('video-ekyc-rules-strip');
+        const sigInstr = document.getElementById('video-ekyc-sig-instructions');
+        if (rules) rules.style.display = 'none';
+        if (sigInstr) sigInstr.style.display = 'flex';
+        // Face/multi-face/noise monitoring only applies to the identity Q&A steps — stop it
+        // now that we're capturing a signed document, not the person's face.
+        stopVideoEkycMonitoring();
+        _vekycSignatureImage = null;
+        _vekycSigStableStreak = 0;
+        _vekycSigLastMetrics = null;
+        const previewWrap = document.getElementById('video-ekyc-sig-preview-wrap');
+        if (previewWrap) previewWrap.style.display = 'none';
+        const manualBtn = document.getElementById('video-ekyc-sig-manual-btn');
+        if (manualBtn) manualBtn.style.display = 'block';
+        const statusEl = document.getElementById('video-ekyc-sig-status');
+        if (statusEl) { statusEl.textContent = '📷 Switching to back camera…'; statusEl.classList.remove('found'); }
+        switchVideoEkycToBackCamera();
+    }
+    function switchVideoEkycToBackCamera() {
+        const video = document.getElementById('video-ekyc-cam');
+        const fallback = document.getElementById('video-ekyc-cam-fallback');
+        if (_vekycStream) { _vekycStream.getTracks().forEach(t => t.stop()); _vekycStream = null; }
+        const onReady = (stream) => {
+            _vekycStream = stream;
+            video.srcObject = stream;
+            video.classList.remove('mirrored-preview'); // back camera view should not be mirrored
+            video.play().catch(() => {});
+            if (fallback) fallback.style.display = 'none';
+            const statusEl = document.getElementById('video-ekyc-sig-status');
+            if (statusEl) statusEl.textContent = '🔍 Looking for your signature…';
+            startVideoEkycSignatureDetection();
+        };
+        if (!video || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+            if (fallback) fallback.style.display = 'flex';
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+            .then(onReady)
+            .catch(() => {
+                // Some devices (e.g. laptop webcams) have no back camera at all — fall back to
+                // whatever camera is available so the user can still hold up their signature.
+                navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(onReady)
+                    .catch(() => {
+                        if (fallback) fallback.style.display = 'flex';
+                        const statusEl = document.getElementById('video-ekyc-sig-status');
+                        if (statusEl) statusEl.textContent = '⚠️ Camera unavailable — please check permissions and try again.';
+                    });
+            });
+    }
+    // Samples small downscaled frames every ~400ms and looks for a frame that is mostly
+    // paper-white with a modest amount of dark ink strokes — i.e. a signed sheet of white
+    // paper, not a blank page and not a hand/object filling the frame. Requires a few
+    // consecutive, near-identical readings (the paper being held steady) before trusting it,
+    // then auto-captures a full-resolution frame with no button press needed.
+    function startVideoEkycSignatureDetection() {
+        stopVideoEkycSignatureDetection();
+        const video = document.getElementById('video-ekyc-cam');
+        const canvas = document.getElementById('video-ekyc-sig-canvas');
+        if (!video || !canvas) return;
+        _vekycSigDetectTimer = setInterval(() => {
+            if (_vekycSignatureImage || !video.videoWidth || !video.videoHeight) return;
+            const w = 160, h = Math.max(1, Math.round(160 * (video.videoHeight / video.videoWidth)));
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, w, h);
+            let imgData;
+            try { imgData = ctx.getImageData(0, 0, w, h).data; } catch (e) { return; }
+            let whiteCount = 0, darkCount = 0;
+            for (let i = 0; i < imgData.length; i += 4) {
+                const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+                const brightness = (r + g + b) / 3;
+                if (brightness > 190 && (Math.max(r, g, b) - Math.min(r, g, b)) < 35) whiteCount++; // paper-white, low saturation
+                else if (brightness < 95) darkCount++; // dark ink strokes
+            }
+            const total = w * h;
+            const whiteRatio = whiteCount / total;
+            const darkRatio = darkCount / total;
+            const statusEl = document.getElementById('video-ekyc-sig-status');
+            const looksLikeSignedPaper = whiteRatio >= VEKYC_SIG_WHITE_MIN_RATIO && darkRatio >= VEKYC_SIG_DARK_MIN_RATIO && darkRatio <= VEKYC_SIG_DARK_MAX_RATIO;
+            if (!looksLikeSignedPaper) {
+                _vekycSigStableStreak = 0;
+                _vekycSigLastMetrics = { whiteRatio, darkRatio };
+                if (statusEl) { statusEl.textContent = '🔍 Looking for your signature…'; statusEl.classList.remove('found'); }
+                return;
+            }
+            const prev = _vekycSigLastMetrics;
+            const stableEnough = prev && Math.abs(prev.whiteRatio - whiteRatio) < 0.06 && Math.abs(prev.darkRatio - darkRatio) < 0.04;
+            _vekycSigLastMetrics = { whiteRatio, darkRatio };
+            if (stableEnough) {
+                _vekycSigStableStreak++;
+                if (statusEl) { statusEl.textContent = '✅ Signature found — holding steady, capturing…'; statusEl.classList.add('found'); }
+                if (_vekycSigStableStreak >= VEKYC_SIG_STABLE_NEEDED) captureVideoEkycSignatureFrame();
+            } else {
+                _vekycSigStableStreak = 1;
+                if (statusEl) { statusEl.textContent = '✋ Hold the paper steady…'; statusEl.classList.remove('found'); }
+            }
+        }, VEKYC_SIG_DETECT_INTERVAL_MS);
+    }
+    function stopVideoEkycSignatureDetection() {
+        if (_vekycSigDetectTimer) { clearInterval(_vekycSigDetectTimer); _vekycSigDetectTimer = null; }
+    }
+    // Grabs a full-resolution frame the instant the AI is confident it has the right shot.
+    function captureVideoEkycSignatureFrame() {
+        stopVideoEkycSignatureDetection();
+        const video = document.getElementById('video-ekyc-cam');
+        const canvas = document.getElementById('video-ekyc-sig-canvas');
+        if (!video || !canvas || !video.videoWidth) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        let dataUrl = null;
+        try { dataUrl = canvas.toDataURL('image/jpeg', 0.92); } catch (e) { /* canvas tainted or unsupported */ }
+        if (!dataUrl) { alert('Could not capture the signature image. Please try "Capture Now" again.'); startVideoEkycSignatureDetection(); return; }
+        _vekycSignatureImage = dataUrl;
+        const preview = document.getElementById('video-ekyc-sig-preview');
+        const previewWrap = document.getElementById('video-ekyc-sig-preview-wrap');
+        const statusEl = document.getElementById('video-ekyc-sig-status');
+        const manualBtn = document.getElementById('video-ekyc-sig-manual-btn');
+        const nextBtn = document.getElementById('video-ekyc-next-btn');
+        if (preview) preview.src = dataUrl;
+        if (previewWrap) previewWrap.style.display = 'flex';
+        if (statusEl) { statusEl.textContent = '✅ Signature captured!'; statusEl.classList.add('found'); }
+        if (manualBtn) manualBtn.style.display = 'none';
+        if (nextBtn) nextBtn.disabled = false;
+        // Signature captured — the back camera is no longer needed for this session.
+        if (_vekycStream) { _vekycStream.getTracks().forEach(t => t.stop()); _vekycStream = null; }
+    }
+    // Manual fallback in case auto-detection doesn't trigger (unusual lighting/pen/paper).
+    function captureVideoEkycSignatureNow() {
+        const video = document.getElementById('video-ekyc-cam');
+        if (!video || !video.videoWidth) { alert('Camera is not ready yet — please wait a moment and try again.'); return; }
+        captureVideoEkycSignatureFrame();
+    }
+    function retakeVideoEkycSignature() {
+        _vekycSignatureImage = null;
+        _vekycSigStableStreak = 0;
+        _vekycSigLastMetrics = null;
+        const previewWrap = document.getElementById('video-ekyc-sig-preview-wrap');
+        if (previewWrap) previewWrap.style.display = 'none';
+        const manualBtn = document.getElementById('video-ekyc-sig-manual-btn');
+        if (manualBtn) manualBtn.style.display = 'block';
+        const nextBtn = document.getElementById('video-ekyc-next-btn');
+        if (nextBtn) nextBtn.disabled = true;
+        switchVideoEkycToBackCamera();
     }
     // Runs for the entire time the live camera step is open. Any single violation — the
     // person leaving the frame, a second person entering it, or sustained background
     // noise/voices — fails the whole attempt immediately, exactly like a real eKYC session.
     async function startVideoEkycMonitoring() {
         _vekycMonitoringActive = true;
-        _vekycNoFaceStreak = 0; _vekycMultiFaceStreak = 0; _vekycNoiseStreak = 0;
+        _vekycNoFaceStreak = 0; _vekycMultiFaceStreak = 0; _vekycNoiseWindow = [];
         try { await loadModels(); } catch (e) { /* if models fail to load, skip the face checks rather than blocking eKYC entirely */ }
         const video = document.getElementById('video-ekyc-cam');
         if (_vekycMonitorTimer) clearInterval(_vekycMonitorTimer);
@@ -9052,12 +9276,10 @@
                 let sumSq = 0;
                 for (let i = 0; i < data.length; i++) sumSq += data[i] * data[i];
                 const rms = Math.sqrt(sumSq / data.length);
-                if (rms > VEKYC_NOISE_THRESHOLD) {
-                    _vekycNoiseStreak++;
-                    if (_vekycNoiseStreak >= VEKYC_NOISE_LIMIT) { videoEkycAutoFail('Background noise or another voice was detected during Video eKYC.'); return; }
-                } else {
-                    _vekycNoiseStreak = 0;
-                }
+                _vekycNoiseWindow.push(rms > VEKYC_NOISE_THRESHOLD);
+                if (_vekycNoiseWindow.length > VEKYC_NOISE_WINDOW_SIZE) _vekycNoiseWindow.shift();
+                const noisyCount = _vekycNoiseWindow.reduce((n, v) => n + (v ? 1 : 0), 0);
+                if (noisyCount >= VEKYC_NOISE_WINDOW_FAIL_COUNT) { videoEkycAutoFail('Background noise or another voice was detected during Video eKYC.'); return; }
             }
         }, VEKYC_MONITOR_INTERVAL_MS);
     }
@@ -9066,9 +9288,10 @@
         if (_vekycMonitorTimer) { clearInterval(_vekycMonitorTimer); _vekycMonitorTimer = null; }
         if (_vekycAudioCtx) { try { _vekycAudioCtx.close(); } catch (e) {} _vekycAudioCtx = null; }
         _vekycAnalyser = null;
+        _vekycNoiseWindow = [];
     }
     function renderVideoEkycDots() {
-        const total = _vekycQuestions.length + 1;
+        const total = _vekycQuestions.length + 2;
         const dotsEl = document.getElementById('video-ekyc-dots');
         let html = '';
         for (let i = 0; i < total; i++) {
@@ -9077,6 +9300,12 @@
         }
         dotsEl.innerHTML = html;
     }
+    // Speaks the given step text immediately if the camera has already finished its settle
+    // delay (e.g. every step after the first), or queues it to be spoken once that delay
+    // completes (only relevant for the very first step, where the greeting lives).
+    function vekycSpeakOrQueue(text) {
+        if (_vekycCameraReadyTimer) { _vekycPendingSpeak = text; } else { vekycSpeakStep(text); }
+    }
     function renderVideoEkycStep() {
         document.getElementById('video-ekyc-step-num').textContent = String(_vekycQIndex + 1);
         const answerInput = document.getElementById('video-ekyc-answer-input');
@@ -9084,22 +9313,40 @@
         const codeInput = document.getElementById('video-ekyc-code-input');
         if (codeInput) codeInput.value = '';
         renderVideoEkycDots();
-        const isCodeStep = _vekycQIndex >= _vekycQuestions.length;
-        if (!isCodeStep) {
+        const isCodeStep = _vekycQIndex === _vekycQuestions.length;
+        const isSignatureStep = _vekycQIndex > _vekycQuestions.length;
+        const answerRow = document.getElementById('video-ekyc-answer-row');
+        const codeRow = document.getElementById('video-ekyc-code-row');
+        const sigRow = document.getElementById('video-ekyc-signature-row');
+        if (!isCodeStep && !isSignatureStep) {
             const cur = _vekycQuestions[_vekycQIndex];
             document.getElementById('video-ekyc-ai-bubble').textContent = '🤖 ' + cur.q;
-            document.getElementById('video-ekyc-answer-row').style.display = 'block';
-            document.getElementById('video-ekyc-code-row').style.display = 'none';
+            if (answerRow) answerRow.style.display = 'block';
+            if (codeRow) codeRow.style.display = 'none';
+            if (sigRow) sigRow.style.display = 'none';
             document.getElementById('video-ekyc-next-btn').textContent = 'Next →';
-            vekycSpeakStep(cur.q);
-        } else {
-            const codeStepText = 'Last step — a unique verification code is shown on your screen. Please read it and type it below to confirm this is a live session.';
+            document.getElementById('video-ekyc-next-btn').disabled = false;
+            vekycSpeakOrQueue(cur.q);
+        } else if (isCodeStep) {
+            const codeStepText = 'Next, a unique verification code is shown on your screen. Please read it and type it below to confirm this is a live session.';
             document.getElementById('video-ekyc-ai-bubble').textContent = '🤖 ' + codeStepText;
-            document.getElementById('video-ekyc-answer-row').style.display = 'none';
-            document.getElementById('video-ekyc-code-row').style.display = 'block';
+            if (answerRow) answerRow.style.display = 'none';
+            if (codeRow) codeRow.style.display = 'block';
+            if (sigRow) sigRow.style.display = 'none';
             document.getElementById('video-ekyc-code-display').textContent = _vekycCode;
+            document.getElementById('video-ekyc-next-btn').textContent = 'Next →';
+            document.getElementById('video-ekyc-next-btn').disabled = false;
+            vekycSpeakOrQueue(codeStepText);
+        } else {
+            const sigStepText = "Last step — signature capture. Please sign on a plain white paper using a black pen, then hold it steady facing the back camera. I will capture it automatically the moment your signature is clearly visible.";
+            document.getElementById('video-ekyc-ai-bubble').textContent = '🤖 ' + sigStepText;
+            if (answerRow) answerRow.style.display = 'none';
+            if (codeRow) codeRow.style.display = 'none';
+            if (sigRow) sigRow.style.display = 'block';
             document.getElementById('video-ekyc-next-btn').textContent = 'Submit for AI Verification';
-            vekycSpeakStep(codeStepText);
+            document.getElementById('video-ekyc-next-btn').disabled = true; // enabled once the signature is auto-captured
+            vekycSpeakOrQueue(sigStepText);
+            startVideoEkycSignatureStep();
         }
     }
     function cancelVideoEkyc() {
@@ -9109,8 +9356,9 @@
         document.getElementById('video-ekyc-modal').classList.remove('modal-open');
     }
     function videoEkycNext() {
-        const isCodeStep = _vekycQIndex >= _vekycQuestions.length;
-        if (!isCodeStep) {
+        const isCodeStep = _vekycQIndex === _vekycQuestions.length;
+        const isSignatureStep = _vekycQIndex > _vekycQuestions.length;
+        if (!isCodeStep && !isSignatureStep) {
             const ans = document.getElementById('video-ekyc-answer-input').value.trim();
             if (!ans) { alert('Please answer the question before continuing.'); return; }
             const cur = _vekycQuestions[_vekycQIndex];
@@ -9119,10 +9367,14 @@
             _vekycResults.push({ field: cur.field, label: cur.label, correct: correct });
             _vekycQIndex++;
             renderVideoEkycStep();
-        } else {
+        } else if (isCodeStep) {
             const codeEntered = document.getElementById('video-ekyc-code-input').value.trim();
             const codeMatches = codeEntered === _vekycCode;
             _vekycResults.push({ field: 'liveCode', label: 'Live Verification Code', correct: codeMatches });
+            _vekycQIndex++;
+            renderVideoEkycStep();
+        } else {
+            if (!_vekycSignatureImage) { alert('Please wait for the signature to be captured (or use Capture Now) before continuing.'); return; }
             finishVideoEkyc();
         }
     }
@@ -9197,7 +9449,8 @@
             at: new Date().toISOString(), passed: passed, mode: mode,
             answers: _vekycResults.map(r => ({ field: r.field, label: r.label, correct: r.correct })),
             mismatchedFields: mismatchedLabels,
-            violation: violation || null
+            violation: violation || null,
+            signatureCaptured: !!_vekycSignatureImage
         };
 
         if (mode === 'reverify') {
@@ -9209,6 +9462,7 @@
                 wallet.ekycRequest.nextAttemptAt = null;
                 wallet.ekycRequest.verificationToken = 'KYC-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
                 wallet.ekycRequest.tokenVerifiedAt = wallet.ekycRequest.verifiedAt;
+                if (_vekycSignatureImage) wallet.ekycRequest.signatureImage = _vekycSignatureImage;
                 wallet.ekycRequest.history.push(Object.assign({ date: wallet.ekycRequest.verifiedAt, result: 'verified', token: wallet.ekycRequest.verificationToken }, attemptRecord));
             } else {
                 const nextAttemptAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -9227,6 +9481,7 @@
                 wallet.setup.videoEkyc.status = 'verified';
                 wallet.setup.videoEkyc.verifiedAt = new Date().toISOString();
                 wallet.setup.videoEkyc.cooldownUntil = null;
+                if (_vekycSignatureImage) wallet.setup.videoEkyc.signatureImage = _vekycSignatureImage;
                 // Per policy, the Wallet UID is only ever issued once Video eKYC actually
                 // succeeds — never before, and never regenerated once assigned.
                 if (!wallet.id) wallet.id = generateWalletId();
@@ -9289,6 +9544,22 @@ function openWalletEkycCooldownModal() {
         if (!until || until <= new Date()) {
             closeWalletEkycCooldownModal();
             return;
+        }
+        // Show the actual reason the last attempt failed (a violation like background
+        // noise/out-of-frame, or exactly which detail(s) didn't match) instead of a generic line.
+        const reasonEl = document.getElementById('wekyc-cooldown-reason');
+        if (reasonEl) {
+            const attempts = (ve && Array.isArray(ve.attempts)) ? ve.attempts : [];
+            const lastAttempt = attempts.length ? attempts[attempts.length - 1] : null;
+            let reasonText = "Your last Video eKYC attempt didn't match your submitted details.";
+            if (lastAttempt) {
+                if (lastAttempt.violation) {
+                    reasonText = lastAttempt.violation;
+                } else if (Array.isArray(lastAttempt.mismatchedFields) && lastAttempt.mismatchedFields.length) {
+                    reasonText = 'The following detail(s) did not match our records: ' + lastAttempt.mismatchedFields.join(', ') + '.';
+                }
+            }
+            reasonEl.textContent = reasonText;
         }
         const diff = until - new Date();
         const h = Math.floor(diff / 3600000);
@@ -9611,10 +9882,16 @@ function openWalletEkycCooldownModal() {
         const ek = wallet && wallet.ekycRequest;
         if (!ek || ek.status === 'verified') { host.innerHTML = ''; return; }
         if (ek.status === 'cooldown' && ek.nextAttemptAt && new Date() < new Date(ek.nextAttemptAt)) {
+            // Show the real reason the last attempt was rejected (a violation like background
+            // noise/out-of-frame, or exactly which detail(s) didn't match) instead of a generic
+            // line, so the Admin actually knows what to fix before retrying.
+            const lastEntry = Array.isArray(ek.history) && ek.history.length ? ek.history[ek.history.length - 1] : null;
+            const reasonText = (lastEntry && lastEntry.note) ? lastEntry.note : 'Your last attempt didn\'t match our records.';
             host.innerHTML =
                 '<div class="wallet-info-panel closing">' +
                     '<div class="wallet-info-head">📇 eKYC Verification Required</div>' +
-                    '<p>Your last attempt didn\'t match our records. You can try again after <strong>' + fmtWalletDate(ek.nextAttemptAt) + '</strong>.</p>' +
+                    '<p><strong>Reason:</strong> ' + reasonText + '</p>' +
+                    '<p>You can try again after <strong>' + fmtWalletDate(ek.nextAttemptAt) + '</strong>.</p>' +
                 '</div>';
             return;
         }
